@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="OpenStay - Decentralized booking platform with offline-first architecture">
+  <meta name="theme-color" content="#0b0f14">
+  
+  <!-- 
+    MIT License - OpenStay Production
+    
+    Security Notes:
+    - CSP: Consider 'unsafe-inline' restrictions for production deployment
+    - Input validation: All user input sanitized before DOM insertion
+    - Crypto: WebCrypto API for all cryptographic operations
+    - References: MDN Web Docs, WHATWG Standards
+  -->
+  
+  <title>OpenStay — Production Booking Platform</title>
+  
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --fg: #e8f0ff;
+      --muted: #a8b3c7;
+      --card: #121722;
+      --accent: #7bdcff;
+      --line: #253044;
+      --ok: #4ade80;
+      --warn: #f59e0b;
+      --err: #ef4444;
+      --focus: #7bdcff;
+      --shadow: rgba(0, 0, 0, 0.3);
+    }
+    
+    * {
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Ubuntu, Cantarell, sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      line-height: 1.5;
+    }
+    
+    /* Focus management for accessibility */
+    *:focus {
+      outline: 2px solid var(--focus);
+      outline-offset: 2px;
+    }
+    
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      left: 6px;
+      background: var(--accent);
+      color: var(--bg);
+      padding: 8px;
+      text-decoration: none;
+      z-index: 100;
+    }
+    
+    .skip-link:focus {
+      top: 6px;
+    }
+    
+    header {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0));
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+    }
+    
+    h1 {
+      font-size: 1.25rem;
+      margin: 0;
+      letter-spacing: 0.5px;
+      font-weight: 600;
+    }
+    
+    h2, h3 {
+      margin: 0 0 1rem 0;
+      font-weight: 600;
+    }
+    
+    main {
+      padding: 1rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.25rem;
+      box-shadow: 0 4px 12px var(--shadow);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px var(--shadow);
+    }
+    
+    .row {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-bottom: 0.75rem;
+    }
+    
+    .row:last-child {
+      margin-bottom: 0;
+    }
+    
+    input, select, textarea, button {
+      background: #0f1520;
+      color: var(--fg);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 0.75rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      transition: border-color 0.2s ease, background-color 0.2s ease;
+    }
+    
+    input, select, textarea {
+      flex: 1;
+      min-width: 0;
+    }
+    
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--accent);
+      background: #1a1f2e;
+    }
+    
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+    
+    button {
+      cursor: pointer;
+      font-weight: 500;
+      min-width: 120px;
+      transition: all 0.2s ease;
+    }
+    
+    button:hover:not(:disabled) {
+      background: var(--accent);
+      color: var(--bg);
+      transform: translateY(-1px);
+    }
+    
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+      border-color: var(--accent);
+    }
+    
+    .btn-success {
+      background: var(--ok);
+      color: var(--bg);
+      border-color: var(--ok);
+    }
+    
+    .btn-danger {
+      background: var(--err);
+      color: white;
+      border-color: var(--err);
+    }
+    
+    .pill {
+      display: inline-block;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      padding: 0.25rem 0.6rem;
+      color: var(--muted);
+      font-size: 0.8rem;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .tag {
+      display: inline-block;
+      margin: 0.1rem 0.25rem 0.1rem 0;
+      padding: 0.2rem 0.5rem;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      font-size: 0.75rem;
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    
+    .muted {
+      color: var(--muted);
+    }
+    
+    .small {
+      font-size: 0.85rem;
+    }
+    
+    .list {
+      display: grid;
+      gap: 0.75rem;
+    }
+    
+    .thumb {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: var(--card);
+    }
+    
+    .status-badge {
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    
+    .status-requested {
+      background: var(--warn);
+      color: var(--bg);
+    }
+    
+    .status-confirmed {
+      background: var(--ok);
+      color: var(--bg);
+    }
+    
+    .status-declined, .status-canceled {
+      background: var(--err);
+      color: white;
+    }
+    
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 2px;
+      margin: 1rem 0;
+      padding: 1rem;
+      background: #0f1520;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+    }
+    
+    .calendar-day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      transition: all 0.2s ease;
+    }
+    
+    .calendar-day:hover {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    
+    .calendar-day.unavailable {
+      background: var(--err);
+      color: white;
+      cursor: not-allowed;
+    }
+    
+    .calendar-day.selected {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    
+    .loading {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--line);
+      border-top: 2px solid var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .toast {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 1rem;
+      z-index: 1000;
+      transform: translateX(100%);
+      transition: transform 0.3s ease;
+      max-width: 300px;
+    }
+    
+    .toast.show {
+      transform: translateX(0);
+    }
+    
+    details > summary {
+      cursor: pointer;
+      padding: 0.5rem 0;
+      font-weight: 600;
+    }
+    
+    details[open] > summary {
+      margin-bottom: 1rem;
+    }
+    
+    pre {
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: #0f1520;
+      border: 1px solid var(--line);
+      padding: 1rem;
+      border-radius: 8px;
+      max-height: 300px;
+      overflow: auto;
+      font-size: 0.85rem;
+    }
+    
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+      header {
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      
+      .row {
+        flex-direction: column;
+      }
+      
+      button {
+        min-width: auto;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <a href="#main" class="skip-link">Skip to main content</a>
+  
+  <header role="banner">
+    <h1>🏡 OpenStay — Production</h1>
+    <div class="row" style="max-width: 600px;">
+      <label for="search-input" class="sr-only">Search listings</label>
+      <input 
+        id="search-input" 
+        type="search"
+        placeholder="Search listings (title, description, tags)"
+        autocomplete="off"
+        spellcheck="false"
+      >
+      <button 
+        id="toggle-semantic" 
+        type="button"
+        title="Enable WebGPU-powered semantic search (requires online connection)"
+        aria-describedby="semantic-status"
+      >
+        Enable Semantic
+      </button>
+      <span id="semantic-status" class="sr-only">Semantic search disabled</span>
+    </div>
+  </header>
+
+  <main id="main" role="main">
+    <!-- Security & Data Management -->
+    <section class="grid" aria-labelledby="security-heading">
+      <div class="card">
+        <h2 id="security-heading">Security Vault</h2>
+        <div class="row">
+          <label for="seed-input" class="sr-only">Passphrase for encryption</label>
+          <input 
+            id="seed-input" 
+            type="password"
+            placeholder="Enter passphrase (secure vault)" 
+            autocomplete="new-password"
+            minlength="8"
+          >
+          <button id="restore-seed" type="button" class="btn-primary">
+            Unlock Vault
+          </button>
+        </div>
+        <p class="muted small">
+          🔒 AES-GCM-256 encryption with PBKDF2-SHA256 (150k iterations). 
+          <span class="pill">offline-first</span>
+          <span class="pill" id="crypto-type">PBKDF2</span>
+        </p>
+        <div class="row">
+          <button id="enable-notifications" type="button">
+            Enable Notifications
+          </button>
+          <button id="export-data" type="button">
+            Export Backup
+          </button>
+          <input 
+            id="import-file" 
+            type="file" 
+            accept="application/json"
+            style="display: none"
+            aria-label="Import backup file"
+          >
+          <button id="import-data" type="button">
+            Import Backup
+          </button>
+        </div>
+        <div class="row">
+          <button id="enable-signing" type="button" title="Enable ECDSA P-256 signatures for receipts">
+            Enable Signing
+          </button>
+          <button id="toggle-argon2" type="button" title="Load Argon2id WASM for stronger key derivation">
+            Load Argon2id
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Create Listing</h2>
+        <form id="listing-form" novalidate>
+          <div class="row">
+            <label for="host-input" class="sr-only">Your host handle</label>
+            <input 
+              id="host-input" 
+              type="text"
+              placeholder="Your handle (host)" 
+              required
+              maxlength="50"
+              pattern="[a-zA-Z0-9_-]+"
+              title="Alphanumeric characters, hyphens, and underscores only"
+            >
+            <label for="title-input" class="sr-only">Listing title</label>
+            <input 
+              id="title-input" 
+              type="text"
+              placeholder="Listing title" 
+              required
+              maxlength="100"
+            >
+          </div>
+          <label for="description-input" class="sr-only">Description</label>
+          <textarea 
+            id="description-input" 
+            placeholder="Detailed description of your space"
+            maxlength="2000"
+            rows="4"
+          ></textarea>
+          <div class="row">
+            <label for="price-input" class="sr-only">Price per night</label>
+            <input 
+              id="price-input" 
+              type="number" 
+              placeholder="Price per night"
+              min="0"
+              max="10000"
+              step="0.01"
+            >
+            <label for="currency-select" class="sr-only">Currency</label>
+            <select id="currency-select">
+              <option value="USD">USD</option>
+              <option value="EUR">EUR</option>
+              <option value="GBP">GBP</option>
+              <option value="CAD">CAD</option>
+              <option value="AUD">AUD</option>
+            </select>
+            <label for="location-input" class="sr-only">Location</label>
+            <input 
+              id="location-input" 
+              type="text"
+              placeholder="City or coordinates (optional)"
+              maxlength="100"
+            >
+          </div>
+          <div class="row">
+            <label for="tags-input" class="sr-only">Tags (comma-separated)</label>
+            <input 
+              id="tags-input" 
+              type="text"
+              placeholder="Tags: wifi, pet-friendly, parking, etc."
+              maxlength="200"
+            >
+          </div>
+          <div class="row">
+            <label for="photos-input" class="sr-only">Photos</label>
+            <input 
+              id="photos-input" 
+              type="file" 
+              accept="image/*" 
+              multiple
+              aria-describedby="photos-help"
+            >
+            <button type="submit" class="btn-primary">
+              Create Listing
+            </button>
+          </div>
+          <p id="photos-help" class="muted small">
+            📱 Images stored locally (OPFS/IndexedDB). Max 10MB per file.
+          </p>
+        </form>
+      </div>
+    </section>
+
+    <!-- Booking Management -->
+    <section class="grid" aria-labelledby="booking-heading">
+      <div class="card">
+        <h2 id="booking-heading">Booking Manager</h2>
+        <div class="row">
+          <label for="guest-input" class="sr-only">Your guest handle</label>
+          <input 
+            id="guest-input" 
+            type="text"
+            placeholder="Your handle (guest)" 
+            maxlength="50"
+            pattern="[a-zA-Z0-9_-]+"
+          >
+          <label for="guests-input" class="sr-only">Number of guests</label>
+          <input 
+            id="guests-input" 
+            type="number"
+            placeholder="Guests" 
+            min="1"
+            max="20"
+            value="1"
+          >
+        </div>
+        <div class="row">
+          <label for="checkin-input" class="sr-only">Check-in date</label>
+          <input 
+            id="checkin-input" 
+            type="date"
+            aria-label="Check-in date"
+          >
+          <label for="checkout-input" class="sr-only">Check-out date</label>
+          <input 
+            id="checkout-input" 
+            type="date"
+            aria-label="Check-out date"
+          >
+        </div>
+        <div id="listings-container" class="list" role="region" aria-label="Available listings">
+          <p class="muted">Available listings will appear here...</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Inbox & Messages</h2>
+        <div class="row">
+          <label for="inbox-handle" class="sr-only">Your handle for inbox</label>
+          <input 
+            id="inbox-handle" 
+            type="text"
+            placeholder="Your handle to view inbox"
+            maxlength="50"
+          >
+          <button id="load-inbox" type="button" class="btn-primary">
+            Load Inbox
+          </button>
+        </div>
+        <div id="inbox-container" role="region" aria-label="Messages and booking requests">
+          <p class="muted">Messages will appear here...</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- P2P Sync & Advanced Features -->
+    <section class="grid" aria-labelledby="sync-heading">
+      <div class="card">
+        <h2 id="sync-heading">Peer-to-Peer Sync</h2>
+        <p class="muted small">
+          🔗 Manual WebRTC pairing with copy-paste signaling. 
+          Works offline after initial connection.
+        </p>
+        <div class="row">
+          <button id="create-offer" type="button">Create Offer</button>
+          <button id="accept-answer" type="button">Accept Answer</button>
+        </div>
+        <label for="signal-output" class="sr-only">Offer/Answer output</label>
+        <textarea 
+          id="signal-output" 
+          placeholder="Offer/Answer will appear here (copy to peer)"
+          readonly
+          aria-describedby="signal-help"
+        ></textarea>
+        <label for="signal-input" class="sr-only">Paste peer signal</label>
+        <textarea 
+          id="signal-input" 
+          placeholder="Paste peer's Offer/Answer here"
+        ></textarea>
+        <div class="row">
+          <button id="accept-offer" type="button">Accept Offer</button>
+          <button id="create-answer" type="button">Create Answer</button>
+          <button id="send-sync" type="button" class="btn-success">
+            Send Data Sync →
+          </button>
+        </div>
+        <div id="p2p-status" class="muted small" aria-live="polite">
+          Status: Disconnected
+        </div>
+        <p id="signal-help" class="muted small">
+          Copy offer/answer and share via secure channel (Signal, email, etc.)
+        </p>
+      </div>
+
+      <div class="card">
+        <h2>System Status</h2>
+        <div id="system-status" class="small">
+          <div>🗄️ Storage: <span id="storage-info">Checking...</span></div>
+          <div>🔗 Connectivity: <span id="connection-info">Online</span></div>
+          <div>⚡ Performance: <span id="performance-info">Ready</span></div>
+          <div>🔄 Sync: <span id="sync-info">Local only</span></div>
+        </div>
+        <details style="margin-top: 1rem;">
+          <summary>Advanced Features</summary>
+          <ul class="small muted">
+            <li>🧠 Semantic search via WebGPU (Transformers.js) when online</li>
+            <li>📱 OPFS storage for large media files (HTTPS required)</li>
+            <li>🔐 ECDSA P-256 signatures for tamper-evident receipts</li>
+            <li>🌐 Background Workers for CPU-intensive tasks</li>
+            <li>📡 BroadcastChannel for multi-tab synchronization</li>
+          </ul>
+          <div id="debug-log" class="muted small" style="margin-top: 1rem;">
+            Debug information will appear here...
+          </div>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <!-- Toast notification container -->
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Secure Vault & Crypto Utils (PBKDF2 → AES-GCM, Optional Argon2id) -->
+  <script>
+  'use strict';
+  
+  // Reference: https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
+  const SecureVault = (() => {
+    const DB_NAME = 'openstay-production';
+    const DB_VERSION = 3;
+    let derivedKey = null;
+    let namespace = 'openstay';
+    let signingKeyPair = null;
+    let argon2Instance = null;
+    
+    // Text encoding utilities
+    const enc = (str) => new TextEncoder().encode(str);
+    const dec = (buffer) => new TextDecoder().decode(buffer);
+    
+    // Load Argon2id WASM for stronger key derivation
+    async function loadArgon2() {
+      if (argon2Instance) return argon2Instance;
+      
+      try {
+        // Dynamic import of Argon2id WASM (when online)
+        const module = await import('https://cdn.jsdelivr.net/npm/argon2-browser@1.18.0/dist/argon2.min.js');
+        argon2Instance = module.default;
+        return argon2Instance;
+      } catch (error) {
+        console.warn('Argon2 WASM load failed:', error.message);
+        return null;
+      }
+    }
+    
+    // Derive encryption key from passphrase
+    async function deriveKey(passphrase, ns = 'openstay', useArgon2 = false) {
+      namespace = ns;
+      const salt = enc(`sv:${namespace}:2024`); // Version in salt
+      
+      try {
+        if (useArgon2 && argon2Instance) {
+          // Argon2id parameters (stronger but slower)
+          const result = await argon2Instance.hash({
+            pass: passphrase,
+            salt: Array.from(salt),
+            time: 3,      // iterations
+            mem: 65536,   // memory (64MB)
+            hashLen: 32,  // 256-bit key
+            parallelism: 1,
+            type: argon2Instance.ArgonType.Argon2id
+          });
+          
+          const keyMaterial = new Uint8Array(result.hash);
+          derivedKey = await crypto.subtle.importKey(
+            'raw',
+            keyMaterial,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+          );
+          
+          updateCryptoStatus('Argon2id');
+        } else {
+          // PBKDF2-SHA256 fallback
+          const keyMaterial = await crypto.subtle.importKey(
+            'raw',
+            enc(passphrase),
+            { name: 'PBKDF2' },
+            false,
+            ['deriveKey']
+          );
+          
+          derivedKey = await crypto.subtle.deriveKey(
+            {
+              name: 'PBKDF2',
+              salt: salt,
+              iterations: 150000, // OWASP recommended minimum
+              hash: 'SHA-256'
+            },
+            keyMaterial,
+            { name: 'AES-GCM', length: 256 },
+            false,
+            ['encrypt', 'decrypt']
+          );
+          
+          updateCryptoStatus('PBKDF2');
+        }
+        
+        // Store namespace for persistence
+        localStorage.setItem('SV_NAMESPACE', namespace);
+        return true;
+      } catch (error) {
+        console.error('Key derivation failed:', error);
+        throw new Error('Failed to derive encryption key');
+      }
+    }
+    
+    // Generate ECDSA key pair for signatures
+    async function generateSigningKeys() {
+      try {
+        signingKeyPair = await crypto.subtle.generateKey(
+          {
+            name: 'ECDSA',
+            namedCurve: 'P-256'
+          },
+          true, // extractable
+          ['sign', 'verify']
+        );
+        
+        // Export public key for sharing
+        const publicKeyJWK = await crypto.subtle.exportKey('jwk', signingKeyPair.publicKey);
+        return publicKeyJWK;
+      } catch (error) {
+        console.error('Signing key generation failed:', error);
+        throw error;
+      }
+    }
+    
+    // Sign data with ECDSA
+    async function signData(data) {
+      if (!signingKeyPair) {
+        throw new Error('Signing keys not initialized');
+      }
+      
+      const signature = await crypto.subtle.sign(
+        {
+          name: 'ECDSA',
+          hash: 'SHA-256'
+        },
+        signingKeyPair.privateKey,
+        enc(JSON.stringify(data))
+      );
+      
+      return btoa(String.fromCharCode(...new Uint8Array(signature)));
+    }
+    
+    // Encrypt JSON data
+    async function encryptJSON(obj) {
+      if (!derivedKey) {
+        throw new Error('Vault not unlocked - call deriveKey first');
+      }
+      
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const data = enc(JSON.stringify(obj));
+      
+      const encrypted = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        derivedKey,
+        data
+      );
+      
+      // Combine IV + ciphertext and encode
+      const combined = new Uint8Array(iv.length + encrypted.byteLength);
+      combined.set(iv);
+      combined.set(new Uint8Array(encrypted), iv.length);
+      
+      return btoa(String.fromCharCode(...combined));
+    }
+    
+    // Decrypt JSON data
+    async function decryptJSON(payload) {
+      if (!derivedKey) {
+        throw new Error('Vault not unlocked - call deriveKey first');
+      }
+      
+      const raw = Uint8Array.from(atob(payload), c => c.charCodeAt(0));
+      const iv = raw.slice(0, 12);
+      const ciphertext = raw.slice(12);
+      
+      const decrypted = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv },
+        derivedKey,
+        ciphertext
+      );
+      
+      return JSON.parse(dec(decrypted));
+    }
+    
+    function updateCryptoStatus(type) {
+      const element = document.getElementById('crypto-type');
+      if (element) {
+        element.textContent = type;
+        element.className = type === 'Argon2id' ? 'pill' : 'pill';
+      }
+    }
+    
+    return {
+      deriveKey,
+      encryptJSON,
+      decryptJSON,
+      generateSigningKeys,
+      signData,
+      loadArgon2,
+      get isUnlocked() { return !!derivedKey; },
+      get hasSigningKeys() { return !!signingKeyPair; }
+    };
+  })();
+  </script>
+
+  <!-- IndexedDB Schema & Validation -->
+  <script>
+  // Reference: https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API
+  const Database = (() => {
+    const DB_NAME = 'openstay-production';
+    const DB_VERSION = 3;
+    let dbInstance = null;
+    
+    // Input validation and sanitization
+    const validators = {
+      sanitizeText: (str, maxLength = 1000) => {
+        if (typeof str !== 'string') return '';
+        return str.trim().slice(0, maxLength)
+          .replace(/[<>'"&]/g, '') // Basic XSS prevention
+          .replace(/\s+/g, ' '); // Normalize whitespace
+      },
+      
+      validateHandle: (handle) => {
+        if (!handle || typeof handle !== 'string') return false;
+        return /^[a-zA-Z0-9_-]{1,50}$/.test(handle.trim());
+      },
+      
+      validateEmail: (email) => {
+        if (!email || typeof email !== 'string') return false;
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+      },
+      
+      validatePrice: (price) => {
+        const num = Number(price);
+        return !isNaN(num) && num
