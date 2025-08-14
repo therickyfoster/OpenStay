@@ -1,2 +1,0 @@
-# OpenStay
-Decentralized B&B
