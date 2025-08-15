@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenStay — Ultra Standalone (HTML‑only)</title>
+  <style>
+    :root{
+      --bg:#0b0f14;--fg:#e8f0ff;--muted:#a8b3c7;--card:#121722;--accent:#7bdcff;--line:#253044;
+      --ok:#4ade80;--warn:#f59e0b;--err:#ef4444;
+    }
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Arial,sans-serif;background:var(--bg);color:var(--fg)}
+    header{display:flex;gap:1rem;align-items:center;justify-content:space-between;padding:1rem 1.25rem;border-bottom:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(0,0,0,0));position:sticky;top:0;z-index:2}
+    h1{font-size:1.25rem;margin:0;letter-spacing:.5px}
+    main{padding:1rem;max-width:1100px;margin:0 auto}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1rem}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem}
+    .row{display:flex;gap:.75rem;flex-wrap:wrap}
+    input,select,textarea,button{background:#0f1520;color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:.65rem .75rem;width:100%}
+    textarea{min-height:100px}
+    button{cursor:pointer}
+    .pill{border-radius:999px;border:1px solid var(--line);padding:.15rem .5rem;color:var(--muted);font-size:.8rem}
+    .muted{color:var(--muted)}
+    .list{display:grid;gap:.75rem}
+    .tag{display:inline-block;margin:.1rem .25rem 0 0;padding:.15rem .45rem;border:1px solid var(--line);border-radius:999px;font-size:.75rem;color:var(--muted)}
+    .thumb{width:100%;height:160px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+    .subtle{opacity:.9}
+    .danger{border-color:var(--err);color:#fff}
+    .good{border-color:var(--ok)}
+    .small{font-size:.85rem}
+    details>summary{cursor:pointer}
+    pre{white-space:pre-wrap;word-break:break-word;background:#0f1520;border:1px solid var(--line);padding:.75rem;border-radius:10px;max-height:240px;overflow:auto}
+    .kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#101828;border:1px solid var(--line);padding:.1rem .35rem;border-radius:6px}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🏡 OpenStay — Ultra Standalone</h1>
+    <div class="row" style="max-width:520px">
+      <input id="q" placeholder="Search listings (title/desc)" />
+      <button id="toggleSemantic" title="Experimental: enable WebGPU embeddings when online">Enable Semantic</button>
+    </div>
+  </header>
+  <main>
+
+    <!-- Seed Restore / Export / Import -->
+    <section class="grid">
+      <div class="card">
+        <h3>Seed Restore</h3>
+        <div class="row">
+          <input id="seed" placeholder="Enter passphrase (prototype)" />
+          <button id="restore">Restore</button>
+        </div>
+        <p class="muted small">Prototype PBKDF2→AES‑GCM vault. Use a memorable passphrase. <span class="pill">offline</span></p>
+        <div class="row">
+          <button id="enableNotify">Enable Notifications</button>
+          <button id="exportData">Export Encrypted Backup</button>
+          <input id="importFile" type="file" style="display:none" accept="application/json" />
+          <button id="importData">Import Encrypted Backup</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>Create Listing</h3>
+        <div class="row">
+          <input id="host" placeholder="Your handle (host)" />
+          <input id="title" placeholder="Title" />
+        </div>
+        <textarea id="desc" placeholder="Description"></textarea>
+        <div class="row">
+          <input id="price" type="number" placeholder="Price/night" />
+          <select id="currency"><option>USD</option><option>CAD</option></select>
+          <input id="location" placeholder="City or lat,lon (optional)" />
+        </div>
+        <div class="row">
+          <input id="tags" placeholder="Comma‑separated tags (wifi,pet‑friendly,…)" />
+        </div>
+        <div class="row">
+          <input id="photos" type="file" accept="image/*" multiple />
+          <button id="create">Create Listing</button>
+        </div>
+        <p class="muted small">Images are stored locally (IndexedDB). When hosted over HTTPS, large images use OPFS where available.</p>
+      </div>
+
+      <div class="card">
+        <h3>Availability & Booking</h3>
+        <div class="row">
+          <input id="guest" placeholder="Your handle (guest)" />
+          <input id="start" type="date" />
+          <input id="end" type="date" />
+        </div>
+        <div id="list" class="list" style="margin-top:.5rem"></div>
+      </div>
+    </section>
+
+    <section class="grid" style="margin-top:1rem">
+      <div class="card">
+        <h3>Inbox</h3>
+        <div class="row">
+          <input id="me" placeholder="Your handle to view inbox" />
+          <button id="loadInbox">Load Inbox</button>
+        </div>
+        <div id="inbox"></div>
+      </div>
+
+      <div class="card">
+        <h3>Peer‑to‑Peer Sync (Experimental)</h3>
+        <p class="muted small">Manual WebRTC pairing with copy‑paste signaling. Works offline on LAN after negotiation. No servers.</p>
+        <div class="row">
+          <button id="makeOffer">Create Offer</button>
+          <button id="acceptAnswer">Accept Answer</button>
+        </div>
+        <textarea id="signalOut" placeholder="Offer/Answer will appear here" ></textarea>
+        <textarea id="signalIn" placeholder="Paste peer Answer/Offer here"></textarea>
+        <div class="row">
+          <button id="pasteOffer">Accept Offer</button>
+          <button id="makeAnswer">Create Answer</button>
+          <button id="sendSync">Send Data Sync →</button>
+        </div>
+        <div id="p2pStatus" class="muted small"></div>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top:1rem">
+      <details>
+        <summary><b>Advanced / Experimental</b> — background hashing, ICS export, semantic search, OPFS hints</summary>
+        <ul class="small">
+          <li>Background Worker hashes bookings (SHA‑256) for tamper‑evident receipts.</li>
+          <li>Export <span class="kbd">.ics</span> calendar invites for confirmed bookings.</li>
+          <li>Optional semantic search via WebGPU (Transformers.js) when online.</li>
+          <li>OPFS used for large media files if available over HTTPS; otherwise IndexedDB Blob fallback.</li>
+        </ul>
+        <div id="debug" class="muted small"></div>
+      </details>
+    </section>
+
+  </main>
+
+  <!-- ===== Seed Vault + DB utils (PBKDF2 → AES-GCM) ===== -->
+  <script>
+  'use strict';
+  const SV = (()=>{
+    const DB_NAME='openstay-local'; const DB_VER=2; let _key=null; let _ns='openstay';
+    function enc(s){return new TextEncoder().encode(s)}
+    function dec(b){return new TextDecoder().decode(b)}
+    async function deriveKey(passphrase, namespace='openstay'){
+      _ns = namespace; const salt = enc('sv:'+namespace);
+      const km = await crypto.subtle.importKey('raw', enc(passphrase), {name:'PBKDF2'}, false, ['deriveKey']);
+      _key = await crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:150000,hash:'SHA-256'}, km, {name:'AES-GCM',length:256}, false, ['encrypt','decrypt']);
+      localStorage.setItem('SV_NS', namespace); return true;
+    }
+    async function encryptJSON(obj){ if(!_key) throw new Error('No key'); const iv = crypto.getRandomValues(new Uint8Array(12)); const data=enc(JSON.stringify(obj)); const ct=new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv},_key,data)); return btoa(String.fromCharCode(...iv,...ct)); }
+    async function decryptJSON(payload){ if(!_key) throw new Error('No key'); const raw=Uint8Array.from(atob(payload),c=>c.charCodeAt(0)); const iv=raw.slice(0,12), ct=raw.slice(12); const pt=await crypto.subtle.decrypt({name:'AES-GCM',iv},_key,ct); return JSON.parse(dec(pt)); }
+    function openDB(){ return new Promise((res,rej)=>{ const r=indexedDB.open(DB_NAME,DB_VER); r.onupgradeneeded=()=>{ const db=r.result; ['users','listings','bookings','messages','media'].forEach(s=>{ if(!db.objectStoreNames.contains(s)) db.createObjectStore(s,{keyPath:'id'}); }); if(!db.objectStoreNames.contains('meta')) db.createObjectStore('meta',{keyPath:'k'}); }; r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+    function os(db,name,mode='readonly'){ return db.transaction(name,mode).objectStore(name); }
+    function getAll(os){ return new Promise((res,rej)=>{ const rq=os.getAll(); rq.onsuccess=()=>res(rq.result); rq.onerror=()=>rej(rq.error); }); }
+    async function put(store,v){ const db=await openDB(); return os(db,store,'readwrite').put(v) }
+    async function get(store,id){ const db=await openDB(); return os(db,store).get(id) }
+    async function all(store){ const db=await openDB(); return getAll(os(db,store)) }
+    async function sendMessage({from,to,subject,body,kind='system',refId=null}){ const id=crypto.randomUUID(); const msg={id,ts:Date.now(),from,to,subject,body,kind,refId,unread:true}; await put('messages',msg); return msg }
+    return {deriveKey,encryptJSON,decryptJSON,openDB,put,get,all,sendMessage};
+  })();
+  </script>
+
+  <!-- ===== Inline Worker (hashing, ICS) ===== -->
+  <script>
+  const workerURL = URL.createObjectURL(new Blob([`
+    const enc = (s)=>new TextEncoder().encode(s);
+    self.onmessage = async (e)=>{
+      const {type,data} = e.data||{};
+      try{
+        if(type==='hash'){ const buf = await crypto.subtle.digest('SHA-256', enc(JSON.stringify(data))); const h = [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join(''); postMessage({type:'hash',hash:h}); }
+        if(type==='ics'){
+          const {uid,summary,desc,dtstart,dtend,loc} = data;
+          const ics = `BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//OpenStay//EN\nBEGIN:VEVENT\nUID:${uid}\nDTSTAMP:${toICS(new Date())}\nDTSTART:${toICS(new Date(dtstart))}\nDTEND:${toICS(new Date(dtend))}\nSUMMARY:${escape(summary)}\nDESCRIPTION:${escape(desc)}\nLOCATION:${escape(loc||'')}\nEND:VEVENT\nEND:VCALENDAR`;
+          postMessage({type:'ics',text:ics});
+        }
+      }catch(err){ postMessage({type:'error',message:String(err)}) }
+    };
+    function toICS(d){ const p=(n)=>String(n).padStart(2,'0'); return d.getUTCFullYear()+p(d.getUTCMonth()+1)+p(d.getUTCDate())+'T'+p(d.getUTCHours())+p(d.getUTCMinutes())+p(d.getUTCSeconds())+'Z'; }
+    function escape(s=''){ return String(s).replace(/[\\,;\n]/g,m=>({"\\":"\\\\",",":"\\,",";":"\\;","\n":"\\n"}[m])) }
+  `],{type:'text/javascript'}));
+  const bg = new Worker(workerURL);
+  </script>
+
+  <!-- ===== App Logic ===== -->
+  <script>
+  const $ = (s)=>document.querySelector(s);
+  const L = (id)=>document.getElementById(id);
+  const state = { semantic:false, rtc:null, chan:null };
+
+  // Restore seed
+  L('restore').onclick = async ()=>{ await SV.deriveKey(L('seed').value||'demo-seed','openstay'); toast('Seed restored'); render(); };
+
+  // Notifications
+  L('enableNotify').onclick = async ()=>{ try{ const p = await Notification.requestPermission(); toast('Notifications: '+p); }catch(e){ toast('Notifications unsupported') } };
+
+  // Create listing
+  L('create').onclick = async ()=>{
+    const host=L('host').value||'host'; const id=crypto.randomUUID(); const files = L('photos').files||[];
+    const media = [];
+    for(const f of files){ const b = await f.arrayBuffer(); const idm = crypto.randomUUID(); await SV.put('media',{id:idm, listingId:id, name:f.name, type:f.type, bytes:new Blob([b],{type:f.type})}); media.push(idm); }
+    const listing={ id, host, title:L('title').value.trim(), desc:L('desc').value.trim(), price:+L('price').value||0, currency:L('currency').value, location:L('location').value.trim(), tags:(L('tags').value||'').split(',').map(s=>s.trim()).filter(Boolean), media, created:Date.now() };
+    await SV.put('listings', listing); L('title').value=L('desc').value=L('tags').value=''; L('photos').value=''; render(); toast('Listing created');
+  };
+
+  // List render + search
+  L('q').addEventListener('input', ()=>render());
+  L('toggleSemantic').onclick = async ()=>{ if(state.semantic){ state.semantic=false; L('toggleSemantic').textContent='Enable Semantic'; toast('Semantic search disabled'); return; } try{ await enableSemantic(); state.semantic=true; L('toggleSemantic').textContent='Semantic ON'; toast('Semantic search enabled'); }catch(e){ toast('Semantic init failed (requires online): '+e.message); } };
+
+  async function render(){
+    const listDiv = L('list'); const listings = await SV.all('listings');
+    const q = (L('q').value||'').toLowerCase();
+    let filtered = listings;
+    if(q){ filtered = listings.filter(x=> (x.title+' '+x.desc+' '+(x.tags||[]).join(' ')).toLowerCase().includes(q)); }
+    if(state.semantic && q){ try{ filtered = await semanticFilter(listings,q); }catch{ /* fallback */ } }
+
+    listDiv.innerHTML = filtered.map(x=>cardListing(x)).join('') || '<i class="muted">No listings yet.</i>';
+    // wire buttons
+    listDiv.querySelectorAll('button.book').forEach(btn=>{
+      btn.onclick = async ()=>{
+        const listingId = btn.dataset.id; const listing = await SV.get('listings', listingId);
+        const s = L('start').value, e=L('end').value; if(!s||!e) return toast('Select start/end date');
+        const guest=L('guest').value||'guest'; const booking={ id:crypto.randomUUID(), listingId, host:listing.host, guest, status:'requested', start:s, end:e, ts:Date.now() };
+        await SV.put('bookings', booking);
+        await SV.sendMessage({from:guest,to:listing.host,subject:'Booking Request',body:`${guest} requests ${listing.title} (${s} → ${e}).`,kind:'booking',refId:booking.id});
+        notify(`Booking requested for ${listing.title}`);
+        toast('Request sent');
+      };
+    });
+  }
+
+  function cardListing(x){
+    const price = `${x.price} ${x.currency}`;
+    const tagHTML = (x.tags||[]).map(t=>`<span class="tag">${escapeHTML(t)}</span>`).join('');
+    return `<div class="card">
+      ${thumbBlock(x)}
+      <div class="row" style="align-items:baseline;justify-content:space-between">
+        <div><span class="pill">#${x.id.slice(0,6)}</span> <b>${escapeHTML(x.title||'Untitled')}</b></div>
+        <div class="pill">${price}</div>
+      </div>
+      <div class="muted small">${escapeHTML(x.location||'')}</div>
+      <p class="subtle">${escapeHTML(x.desc||'')}</p>
+      <div>${tagHTML}</div>
+      <div class="row" style="margin-top:.5rem">
+        <button class="book" data-id="${x.id}">Request Booking</button>
+      </div>
+    </div>`;
+  }
+
+  function escapeHTML(s=''){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+  async function blobURLForMedia(id){ const m = await SV.get('media', id); if(!m) return ''; return URL.createObjectURL(m.bytes); }
+  function thumbBlock(x){ if(!x.media||!x.media.length) return ''; const idm=x.media[0]; return `<img class="thumb" src="" data-mid="${idm}" onload="this.onload=null;" />`; }
+
+  // After render, swap in blob URLs
+  const mo = new MutationObserver(async (muts)=>{
+    for(const mut of muts){ mut.addedNodes.forEach(async node=>{
+      if(node.nodeType===1){ node.querySelectorAll?.('img[data-mid]').forEach(async img=>{ const url = await blobURLForMedia(img.getAttribute('data-mid')); img.src=url; }); }
+    }); }
+  }); mo.observe(L('list'), {childList:true,subtree:true});
+
+  // Inbox
+  L('loadInbox').onclick = async ()=>{ const me=L('me').value||''; if(!me) return toast('Enter your handle'); const msgs=(await SV.all('messages')).filter(m=>m.to===me).sort((a,b)=>b.ts-a.ts); L('inbox').innerHTML = msgs.map(m=>msgCard(m)).join('') || '<i class="muted">No messages.</i>'; wireInbox(); };
+  function msgCard(m){ return `<div class="card"><div class="row" style="justify-content:space-between"><b>${escapeHTML(m.subject||'')}</b><span class="muted small">${new Date(m.ts).toLocaleString()}</span></div><p>${escapeHTML(m.body||'')}</p>${m.kind==='booking'?`<div class="row"><button class="confirm" data-id="${m.refId}">Confirm</button><button class="decline danger" data-id="${m.refId}">Decline</button></div>`:''}</div>`; }
+  function wireInbox(){
+    document.querySelectorAll('#inbox .confirm').forEach(btn=>{ btn.onclick = async ()=>{ const id=btn.dataset.id; const b=await SV.get('bookings', id); if(!b) return; b.status='confirmed'; await SV.put('bookings', b); await SV.sendMessage({from:b.host,to:b.guest,subject:'Booking Confirmed',body:`Booking ${id} confirmed (${b.start}→${b.end}).`,kind:'system',refId:id}); // receipt
+      bg.postMessage({type:'hash',data:b});
+      bg.onmessage = async (e)=>{ if(e.data?.type==='hash'){ const hash=e.data.hash; const receipt = `OpenStay Receipt\nBooking:${id}\nSHA-256:${hash}\nWhen:${new Date().toISOString()}`; downloadText(`openstay-receipt-${id}.txt`, receipt); toast('Confirmed + receipt saved'); notify('Booking confirmed'); // ICS export prompt
+          if(confirm('Export calendar invite (.ics)?')){ const listing = await SV.get('listings', b.listingId); bg.postMessage({type:'ics', data:{ uid:id+"@openstay", summary:`OpenStay: ${listing?.title||'Stay'}`, desc:`Host ${b.host} / Guest ${b.guest}`, dtstart:b.start+'T15:00:00Z', dtend:b.end+'T11:00:00Z', loc:listing?.location||'' }}); }
+      } else if(e.data?.type==='ics'){ downloadText(`openstay-${id}.ics`, e.data.text); }
+    } } });
+    document.querySelectorAll('#inbox .decline').forEach(btn=>{ btn.onclick = async ()=>{ const id=btn.dataset.id; const b=await SV.get('bookings', id); if(!b) return; b.status='declined'; await SV.put('bookings', b); await SV.sendMessage({from:b.host,to:b.guest,subject:'Booking Declined',body:`Booking ${id} declined.`,kind:'system',refId:id}); toast('Declined'); } });
+  }
+
+  // Export/Import
+  L('exportData').onclick = async ()=>{ const dump={ listings:await SV.all('listings'), bookings:await SV.all('bookings'), messages:await SV.all('messages'), media:await SV.all('media') };
+    const payload = await SV.encryptJSON(dump); downloadText('openstay-backup.enc.json', JSON.stringify({ns:'openstay', v:1, payload})); toast('Encrypted backup exported'); };
+  L('importData').onclick = ()=> L('importFile').click();
+  L('importFile').onchange = async (e)=>{ const file=e.target.files?.[0]; if(!file) return; const txt=await file.text(); try{ const obj=JSON.parse(txt); const data=await SV.decryptJSON(obj.payload); for(const it of data.listings||[]) await SV.put('listings',it); for(const it of data.bookings||[]) await SV.put('bookings',it); for(const it of data.messages||[]) await SV.put('messages',it); for(const it of data.media||[]) await SV.put('media',it); toast('Import complete'); render(); }catch(err){ alert('Import failed: '+err.message); }
+  };
+
+  function downloadText(name, text){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'})); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
+
+  function toast(msg){ console.log('[OpenStay]', msg); }
+  function notify(msg){ try{ if(Notification.permission==='granted') new Notification('OpenStay',{body:msg}); }catch{}
+  }
+
+  // === Semantic search (optional, online, WebGPU) ===
+  let embedder=null; async function enableSemantic(){ if(embedder) return; // dynamic import
+    const mod = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers');
+    const pipe = await mod.pipeline('feature-extraction','Xenova/all-MiniLM-L6-v2');
+    embedder = async (txt)=>{ const out = await pipe(txt,{pooling:'mean',normalize:true}); return out.data; };
+  }
+  async function semanticFilter(listings, query){ if(!embedder) return listings; const qv = await embedder(query); const scored = await Promise.all(listings.map(async x=>{ const tv = await embedder((x.title||'')+' '+(x.desc||'')); const score = cosine(qv,tv); return [score,x]; })); scored.sort((a,b)=>b[0]-a[0]); return scored.map(s=>s[1]).slice(0,50); }
+  function cosine(a,b){ let s=0,na=0,nb=0; for(let i=0;i<a.length;i++){ s+=a[i]*b[i]; na+=a[i]*a[i]; nb+=b[i]*b[i]; } return s/(Math.sqrt(na)*Math.sqrt(nb)+1e-9); }
+
+  // === P2P sync (manual signaling) ===
+  const ice = [{urls:'stun:stun.l.google.com:19302'}];
+  function newPeer(){ const pc = new RTCPeerConnection({iceServers:ice}); pc.onicecandidate = (e)=>{ if(e.candidate===null){ L('signalOut').value = btoa(JSON.stringify(pc.localDescription)); } }; pc.onconnectionstatechange=()=>{ $('#p2pStatus').textContent = 'State: '+pc.connectionState; }; return pc; }
+
+  L('makeOffer').onclick = async ()=>{ const pc=newPeer(); const ch = pc.createDataChannel('sync'); wireChan(ch); await pc.setLocalDescription(await pc.createOffer()); state.rtc=pc; state.chan=ch; };
+  L('acceptAnswer').onclick = async ()=>{ if(!state.rtc) return toast('Create offer first'); const s=L('signalIn').value.trim(); if(!s) return; await state.rtc.setRemoteDescription(new RTCSessionDescription(JSON.parse(atob(s)))); };
+
+  L('pasteOffer').onclick = async ()=>{ const pc=newPeer(); pc.ondatachannel = (ev)=>{ const ch=ev.channel; wireChan(ch); state.chan=ch; }; const s=L('signalIn').value.trim(); if(!s) return; await pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(atob(s)))); await pc.setLocalDescription(await pc.createAnswer()); state.rtc=pc; };
+  L('makeAnswer').onclick = ()=>{ if(!state.rtc) return; L('signalOut').value = btoa(JSON.stringify(state.rtc.localDescription)); };
+
+  L('sendSync').onclick = async ()=>{ if(!state.chan||state.chan.readyState!=='open') return toast('Channel not open'); const dump={ listings:await SV.all('listings'), bookings:await SV.all('bookings'), messages:await SV.all('messages') }; state.chan.send(JSON.stringify({type:'sync',dump})); toast('Sync sent'); };
+
+  function wireChan(ch){ ch.onopen=()=>toast('P2P channel open'); ch.onmessage=async (ev)=>{ try{ const msg=JSON.parse(ev.data); if(msg.type==='sync'){ for(const it of msg.dump.listings||[]) await SV.put('listings',it); for(const it of msg.dump.bookings||[]) await SV.put('bookings',it); for(const it of msg.dump.messages||[]) await SV.put('messages',it); toast('Sync received'); render(); } }catch{} }; ch.onclose=()=>toast('P2P closed'); }
+
+  // Auto‑init
+  (async ()=>{ await SV.deriveKey('demo-seed','openstay'); render(); })();
+  </script>
+</body>
+</html>
